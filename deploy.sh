@@ -19,12 +19,19 @@ if [ -z "$OPENAI_API_KEY" ]; then
     exit 1
 fi
 
-# Generate API key for client authentication
+# Check if client API key already exists in Secrets Manager
 if [ -z "$CLIENT_API_KEY" ]; then
-    echo "🔑 Generating client API key..."
-    CLIENT_API_KEY=$(openssl rand -hex 32)
-    echo "Generated API Key: $CLIENT_API_KEY"
-    echo "⚠️  Save this API key securely - you'll need it to access the API"
+    echo "🔍 Checking for existing client API key..."
+    if aws secretsmanager describe-secret --secret-id "$API_KEY_SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
+        echo "📋 Found existing client API key, retrieving it..."
+        CLIENT_API_KEY=$(aws secretsmanager get-secret-value --secret-id "$API_KEY_SECRET_NAME" --region "$REGION" --query SecretString --output text | jq -r .api_key)
+        echo "✅ Using existing API Key: $CLIENT_API_KEY"
+    else
+        echo "🔑 No existing API key found, generating new one..."
+        CLIENT_API_KEY=$(openssl rand -hex 32)
+        echo "Generated API Key: $CLIENT_API_KEY"
+        echo "⚠️  Save this API key securely - you'll need it to access the API"
+    fi
 fi
 
 # Create or update the OpenAI API key secret
@@ -83,7 +90,8 @@ echo "🎉 Deployment completed successfully!"
 echo ""
 echo "📋 Deployment Summary:"
 echo "   Stack Name: $STACK_NAME"
-echo "   Secret Name: $SECRET_NAME"
+echo "   OpenAI Secret Name: $OPENAI_SECRET_NAME"
+echo "   Client API Key Secret Name: $API_KEY_SECRET_NAME"
 echo "   Region: $REGION"
 echo ""
 echo "🔗 API Endpoint:"

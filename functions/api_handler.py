@@ -35,11 +35,16 @@ def create_response(status_code: int, body: Dict[str, Any], headers: Optional[Di
     """
     Create a standardized API Gateway response
     """
+    # Get the origin from the request to handle CORS dynamically
+    origin = 'https://travelgpt.nakshatra-ai.com'  # Default to your domain
+    
     default_headers = {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-API-Key',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400'  # Cache preflight for 24 hours
     }
     
     if headers:
