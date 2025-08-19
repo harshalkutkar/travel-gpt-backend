@@ -5,7 +5,8 @@ set -e
 
 # Configuration
 STACK_NAME="travel-gpt-backend"
-SECRET_NAME="travel-gpt/openai-api-key"
+OPENAI_SECRET_NAME="travel-gpt/openai-api-key"
+API_KEY_SECRET_NAME="travel-gpt/api-key"
 REGION="us-east-1"
 
 echo "🚀 Deploying Travel GPT Backend..."
@@ -18,23 +19,51 @@ if [ -z "$OPENAI_API_KEY" ]; then
     exit 1
 fi
 
-# Create or update the secret in AWS Secrets Manager
-echo "🔐 Setting up OpenAI API key in AWS Secrets Manager..."
-SECRET_JSON="{\"api_key\":\"$OPENAI_API_KEY\"}"
+# Generate API key for client authentication
+if [ -z "$CLIENT_API_KEY" ]; then
+    echo "🔑 Generating client API key..."
+    CLIENT_API_KEY=$(openssl rand -hex 32)
+    echo "Generated API Key: $CLIENT_API_KEY"
+    echo "⚠️  Save this API key securely - you'll need it to access the API"
+fi
 
-# Check if secret already exists
-if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
-    echo "📝 Updating existing secret..."
+# Create or update the OpenAI API key secret
+echo "🔐 Setting up OpenAI API key in AWS Secrets Manager..."
+OPENAI_SECRET_JSON="{\"api_key\":\"$OPENAI_API_KEY\"}"
+
+# Check if OpenAI secret already exists
+if aws secretsmanager describe-secret --secret-id "$OPENAI_SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
+    echo "📝 Updating existing OpenAI secret..."
     aws secretsmanager update-secret \
-        --secret-id "$SECRET_NAME" \
-        --secret-string "$SECRET_JSON" \
+        --secret-id "$OPENAI_SECRET_NAME" \
+        --secret-string "$OPENAI_SECRET_JSON" \
         --region "$REGION"
 else
-    echo "📝 Creating new secret..."
+    echo "📝 Creating new OpenAI secret..."
     aws secretsmanager create-secret \
-        --name "$SECRET_NAME" \
+        --name "$OPENAI_SECRET_NAME" \
         --description "OpenAI API key for Travel GPT backend" \
-        --secret-string "$SECRET_JSON" \
+        --secret-string "$OPENAI_SECRET_JSON" \
+        --region "$REGION"
+fi
+
+# Create or update the client API key secret
+echo "🔐 Setting up client API key in AWS Secrets Manager..."
+CLIENT_SECRET_JSON="{\"api_key\":\"$CLIENT_API_KEY\"}"
+
+# Check if client secret already exists
+if aws secretsmanager describe-secret --secret-id "$API_KEY_SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
+    echo "📝 Updating existing client secret..."
+    aws secretsmanager update-secret \
+        --secret-id "$API_KEY_SECRET_NAME" \
+        --secret-string "$CLIENT_SECRET_JSON" \
+        --region "$REGION"
+else
+    echo "📝 Creating new client secret..."
+    aws secretsmanager create-secret \
+        --name "$API_KEY_SECRET_NAME" \
+        --description "Client API key for Travel GPT backend authentication" \
+        --secret-string "$CLIENT_SECRET_JSON" \
         --region "$REGION"
 fi
 

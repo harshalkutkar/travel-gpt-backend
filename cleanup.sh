@@ -82,3 +82,4 @@ else
 fi
 
 print_status "INFO" "Cleanup complete. All specified resources have been removed."
+

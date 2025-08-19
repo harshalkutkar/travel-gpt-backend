@@ -4,12 +4,46 @@ A secure, serverless travel assistant API built with AWS Lambda, API Gateway, an
 
 ## 🚀 Features
 
-- **AI-Powered Travel Advice**: Uses OpenAI GPT-4o for intelligent travel recommendations
-- **Secure API Key Management**: OpenAI API keys stored securely in AWS Secrets Manager
-- **Serverless Architecture**: Built with AWS Lambda and API Gateway
-- **CORS Support**: Ready for web applications
-- **Comprehensive Error Handling**: Graceful error handling and logging
-- **Token Usage Tracking**: Monitor API costs and usage
+- **OpenAI GPT-4o Integration**: Powered by the latest GPT-4o model for intelligent travel recommendations
+- **Secure API Key Management**: Uses AWS Secrets Manager to securely store OpenAI API keys
+- **Custom Authentication**: Implements client API key validation to prevent unauthorized access
+- **Rate Limiting**: Built-in API Gateway rate limiting (10 requests/second, 1000 requests/day)
+- **CORS Support**: Configured for web application integration
+- **Comprehensive Logging**: Detailed CloudWatch logging for monitoring and debugging
+- **Response Truncation Prevention**: Advanced handling to prevent truncated responses from OpenAI API
+- **Streaming Support**: Fallback to streaming API for very long responses
+- **Error Handling**: Robust error handling and user-friendly error messages
+
+## 🔧 Response Truncation Prevention
+
+This API implements several strategies to prevent response truncation from the OpenAI API:
+
+### 1. **Increased Token Limits**
+- **Standard Completion**: 4,000 tokens (increased from 1,000)
+- **Streaming Fallback**: 8,000 tokens for very long responses
+- **Model Support**: GPT-4o supports up to 128k tokens total
+
+### 2. **Streaming Response Handling**
+- **Automatic Detection**: Detects when responses are truncated
+- **Streaming Fallback**: Automatically switches to streaming API for complete responses
+- **Chunked Processing**: Collects full response from streaming chunks
+
+### 3. **Enhanced Lambda Configuration**
+- **Timeout**: Increased to 120 seconds (from 60 seconds)
+- **Memory**: Increased to 1024 MB (from 512 MB)
+- **Better Performance**: Optimized for handling longer API calls
+
+### 4. **Response Monitoring**
+- **Truncation Detection**: Monitors `finish_reason` from OpenAI API
+- **Usage Tracking**: Logs token usage and truncation events
+- **Response Metadata**: Includes truncation status in API responses
+
+### 5. **Best Practices Implementation**
+Based on OpenAI community recommendations:
+- **Progressive Token Limits**: Start with reasonable limits, increase as needed
+- **Streaming for Long Responses**: Use streaming API for responses > 4k tokens
+- **Error Recovery**: Graceful handling of truncation events
+- **Monitoring**: Comprehensive logging for debugging
 
 ## 🏗️ Architecture
 

@@ -7,7 +7,8 @@ echo "🔍 Testing Travel GPT Backend Security Setup..."
 
 # Configuration
 STACK_NAME="travel-gpt-backend"
-SECRET_NAME="travel-gpt/openai-api-key"
+OPENAI_SECRET_NAME="travel-gpt/openai-api-key"
+API_KEY_SECRET_NAME="travel-gpt/api-key"
 REGION="us-east-1"
 
 # Colors for output
@@ -42,21 +43,40 @@ else
     exit 1
 fi
 
-# Test 2: Check if secret exists
+# Test 2: Check if secrets exist
 echo ""
 echo "2. Testing Secrets Manager Configuration..."
-if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
-    print_status "SUCCESS" "Secret '$SECRET_NAME' exists in Secrets Manager"
+
+# Check OpenAI secret
+if aws secretsmanager describe-secret --secret-id "$OPENAI_SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
+    print_status "SUCCESS" "OpenAI secret '$OPENAI_SECRET_NAME' exists in Secrets Manager"
     
     # Check if secret has the expected structure
-    SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --region "$REGION" --query SecretString --output text 2>/dev/null || echo "")
+    SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id "$OPENAI_SECRET_NAME" --region "$REGION" --query SecretString --output text 2>/dev/null || echo "")
     if echo "$SECRET_VALUE" | jq -e '.api_key' >/dev/null 2>&1; then
-        print_status "SUCCESS" "Secret has correct JSON structure with 'api_key' field"
+        print_status "SUCCESS" "OpenAI secret has correct JSON structure with 'api_key' field"
     else
-        print_status "WARNING" "Secret exists but may not have the expected structure"
+        print_status "WARNING" "OpenAI secret exists but may not have the expected structure"
     fi
 else
-    print_status "ERROR" "Secret '$SECRET_NAME' not found in Secrets Manager"
+    print_status "ERROR" "OpenAI secret '$OPENAI_SECRET_NAME' not found in Secrets Manager"
+    echo "   Run: ./deploy.sh to create the secret"
+fi
+
+# Check client API key secret
+if aws secretsmanager describe-secret --secret-id "$API_KEY_SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
+    print_status "SUCCESS" "Client API key secret '$API_KEY_SECRET_NAME' exists in Secrets Manager"
+    
+    # Get the client API key for testing
+    CLIENT_API_KEY=$(aws secretsmanager get-secret-value --secret-id "$API_KEY_SECRET_NAME" --region "$REGION" --query SecretString --output text 2>/dev/null | jq -r '.api_key' 2>/dev/null || echo "")
+    if [ -n "$CLIENT_API_KEY" ]; then
+        print_status "SUCCESS" "Client API key retrieved successfully"
+        export CLIENT_API_KEY="$CLIENT_API_KEY"
+    else
+        print_status "WARNING" "Could not retrieve client API key"
+    fi
+else
+    print_status "ERROR" "Client API key secret '$API_KEY_SECRET_NAME' not found in Secrets Manager"
     echo "   Run: ./deploy.sh to create the secret"
 fi
 
@@ -86,9 +106,11 @@ fi
 # Test 4: Test API endpoints (if available)
 echo ""
 echo "4. Testing API Endpoints..."
-if [ -n "$API_URL" ]; then
+if [ -n "$API_URL" ] && [ -n "$CLIENT_API_KEY" ]; then
     echo "   Testing GET endpoint..."
-    GET_RESPONSE=$(curl -s -w "%{http_code}" "$API_URL" -o /tmp/get_response.json)
+    GET_RESPONSE=$(curl -s -w "%{http_code}" "$API_URL" \
+        -H "X-API-Key: $CLIENT_API_KEY" \
+        -o /tmp/get_response.json)
     HTTP_CODE="${GET_RESPONSE: -3}"
     
     if [ "$HTTP_CODE" = "200" ]; then
@@ -101,6 +123,7 @@ if [ -n "$API_URL" ]; then
     echo "   Testing POST endpoint..."
     POST_RESPONSE=$(curl -s -w "%{http_code}" -X POST "$API_URL" \
         -H "Content-Type: application/json" \
+        -H "X-API-Key: $CLIENT_API_KEY" \
         -d '{"query": "test query"}' \
         -o /tmp/post_response.json)
     HTTP_CODE="${POST_RESPONSE: -3}"
@@ -115,7 +138,12 @@ if [ -n "$API_URL" ]; then
     # Clean up temp files
     rm -f /tmp/get_response.json /tmp/post_response.json
 else
-    print_status "WARNING" "Cannot test API endpoints - no API URL available"
+    if [ -z "$API_URL" ]; then
+        print_status "WARNING" "Cannot test API endpoints - no API URL available"
+    fi
+    if [ -z "$CLIENT_API_KEY" ]; then
+        print_status "WARNING" "Cannot test API endpoints - no client API key available"
+    fi
 fi
 
 # Test 5: Check IAM permissions

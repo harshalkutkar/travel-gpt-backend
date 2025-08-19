@@ -4,14 +4,47 @@ Description: Travel GPT Backend Lambda Function
 
 Globals:
   Function:
-    Timeout: 30
+    Timeout: 120
     Runtime: python3.11
-    MemorySize: 256
+    MemorySize: 1024
     Environment:
       Variables:
         OPENAI_SECRET_NAME: travel-gpt/openai-api-key
+        API_KEY_SECRET_NAME: travel-gpt/api-key
 
 Resources:
+  # API Gateway Usage Plan for Rate Limiting
+  TravelGPTUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: TravelGPTUsagePlan
+      Description: Usage plan for Travel GPT API with rate limiting
+      Throttle:
+        RateLimit: 10
+        BurstLimit: 20
+      Quota:
+        Limit: 1000
+        Period: DAY
+      ApiStages:
+        - ApiId: !Ref ServerlessRestApi
+          Stage: Prod
+
+  # API Key for Usage Plan
+  TravelGPTApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: TravelGPTApiKey
+      Description: API Key for Travel GPT API
+      Enabled: true
+
+  # Associate API Key with Usage Plan
+  TravelGPTApiKeyUsagePlan:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref TravelGPTApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref TravelGPTUsagePlan
+
   TravelGPTFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -39,7 +72,9 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
                 - secretsmanager:DescribeSecret
-              Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:travel-gpt/openai-api-key-*'
+              Resource: 
+                - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:travel-gpt/openai-api-key-*'
+                - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:travel-gpt/api-key-*'
 
 Outputs:
   TravelGPTApi:
